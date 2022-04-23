@@ -21,22 +21,22 @@ pub async fn get_by_id(id: String, pool: Data<Pool<Sqlite>>) -> RowResult {
         .await;
 }
 
-pub async fn delete_by_id(id: String, pool: Data<Pool<Sqlite>>) ->  QueryResult{
+pub async fn delete_by_id(id: String, pool: Data<Pool<Sqlite>>) -> QueryResult{
     return query("DELETE from devices WHERE id = ?").bind(&id).execute(pool.get_ref()).await;
 }
 
 pub async fn save(name: &String, brand: &String, power: i32, serial: &String, pool: Data<Pool<Sqlite>>) -> RowResult {
-    return query("INSERT INTO devices (name, brand, power, serial) VALUES ($1, $2, $3, $4) returning *")
+    return query(r#"INSERT INTO devices (name, brand, power, serial) VALUES ($1, $2, $3, $4) returning *"#)
         .bind(&name)
         .bind(&brand)
-        .bind(&power)
+        .bind(power)
         .bind(&serial)
         .fetch_one(pool.get_ref())
         .await;
 }
 
 pub async fn update(id: String, name: &String, brand: &String, power: i32, serial: &String, pool: Data<Pool<Sqlite>>) -> RowResult {
-    return query("UPDATE devices SET name = $1, brand = $2 , power = $3, serial = $4  where id = $5 returning *")
+    return query(r#"UPDATE devices SET name = $1, brand = $2 , power = $3, serial = $4  where id = $5 returning *"#)
         .bind(&name)
         .bind(&brand)
         .bind(&power)

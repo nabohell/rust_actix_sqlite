@@ -1,18 +1,17 @@
 use actix_web::{
     App,
     test::{
-        read_body_json, 
-        read_body,
+        read_body_json,
         init_service,
-        TestRequest},
-       // http::StatusCode
+        TestRequest,
+    },
+   // http::StatusCode,
 };
 
 use serde_json::{json};
 use crate::api::device_api::{init_routes};
-use crate::types::types::{
-    /*DeviceRequest,*/ Device};
-use sqlx::{Pool, Sqlite, SqlitePool};
+use crate::types::types::{Device};
+use sqlx::{Pool, Sqlite, SqlitePool, migrate};
 
 #[cfg(test)]
 mod tests {
@@ -22,12 +21,12 @@ mod tests {
     let pool: Pool<Sqlite> = SqlitePool::connect("sqlite::memory:")
         .await
         .expect("failed to create DB pool");
-
+    migrate!().run(&pool).await.expect("failed to run migrations");
     pool
    }
 
     #[actix_rt::test]
-    async fn add_device() {
+    async fn add_device_test() {
         let conn_pool = get_db_pool().await;
         let mut app = init_service(
         App::new()
@@ -38,7 +37,7 @@ mod tests {
         let device = json!({
             "brand": "brand",
             "name": "name",
-            "power": "1",
+            "power": 1,
             "serial": "serial"
         });
 
@@ -48,96 +47,131 @@ mod tests {
             .send_request(&mut app)
             .await;
 
-            // println!("{:?}", read_body(response).await);
+        let saved_device: Device = read_body_json(response).await;
 
-        let saved_device:Device = read_body_json(response).await;
-
-        println!("{:?}", saved_device);
-
-        //assert_ne!(response.status(), StatusCode::OK);
         assert_eq!(saved_device.name, "name");
-
-        // let saved_device = read_body_json(response).await;
-        // assert_eq!(saved_device.name, "name");
-        // assert_eq!(saved_device.brand, "brand");
-        // assert_eq!(saved_device.power, 1);
-        // assert_eq!(saved_device.serial, "serial");
+        assert_eq!(saved_device.brand, "brand");
+        assert_eq!(saved_device.power, 1);
+        assert_eq!(saved_device.serial, "serial");
 
     }
 
     #[actix_rt::test]
-    async fn get_device_by_id() {
+    async fn delete_device_test() {
+        let conn_pool = get_db_pool().await;
+        let mut app = init_service(
+        App::new()
+            .data(conn_pool.clone())
+            .configure(init_routes))
+        .await;
+
+        let device = json!({
+            "brand": "brand",
+            "name": "name",
+            "power": 1,
+            "serial": "serial"
+        });
+
+        let response = TestRequest::post()
+            .uri("/devices")
+            .set_json(&device)
+            .send_request(&mut app)
+            .await;
+
+        let saved_device: Device = read_body_json(response).await;
+
+        let respponse = TestRequest::delete()
+            .uri(format!("/devices/{}", saved_device.id).as_str())
+            .send_request(&mut app)
+            .await;
+
+        let delete_response: String = read_body_json(respponse).await;
+
+        assert_eq!(delete_response, "Device deleted!");
+    }
+
+    #[actix_rt::test]
+    async fn get_device_by_id_test() {
         let conn_pool = get_db_pool().await;
         let mut app = init_service(
             App::new()
                 .data(conn_pool.clone())
                 .configure(init_routes))
             .await;
-
-       
+    
+    
         let device = json!({
             "brand": "brand",
             "name": "name",
-            "power": '1',
+            "power": 1,
             "serial": "serial"
         });
-
-        TestRequest::post()
+    
+        let device_add_response = TestRequest::post()
             .uri("/devices")
             .set_json(&device)
             .send_request(&mut app)
             .await;
-
-
-        // let saved_device: DeviceDTO = read_body_json(device_add_response).await;
-
-        // let response = TestRequest::get()
-        //     .uri(format!("/devices/{}", saved_device.id).as_str())
-        //     .send_request(&mut app)
-        //     .await;
-
-        // let device: Device = read_body_json(response).await;
-
-        // assert_eq!(saved_device.id, device.id);
-            let a = 1;
-        assert_eq!(a, 1);
+    
+    
+        let saved_device: Device = read_body_json(device_add_response).await;
+    
+        let response = TestRequest::get()
+            .uri(format!("/devices/{}", saved_device.id).as_str())
+            .send_request(&mut app)
+            .await;
+    
+        let device: Device = read_body_json(response).await;
+    
+        assert_eq!(saved_device.id, device.id);
     }
 
-    // #[actix_rt::test]
-    // async fn update_user() {
-    //     let conn_pool = get_db_pool().await;
-    //     let mut app = init_service(
-    //         App::new()
-    //             .data(conn_pool.clone())
-    //             .configure(init_user_routes))
-    //         .await;
-    //     let email = generate_random_email();
-    //     let phone = generate_random_number();
-    //     let new_user = json!({
-    //         "phone": phone,
-    //         "email": email,
-    //     });
-    //     let updated_email = generate_random_email();
-    //     let updated_phone = generate_random_number();
-    //     let updated_user = json!({
-    //         "phone": updated_phone,
-    //         "email": updated_email,
-    //     });
-    //     let create_user_resp = TestRequest::post()
-    //         .uri("/users")
-    //         .set_json(&new_user)
-    //         .send_request(&mut app)
-    //         .await;
-    //     let created_user: User = read_body_json(create_user_resp).await;
-    //     let resp = TestRequest::put()
-    //         .uri(format!("/users/{}", created_user.id).as_str())
-    //         .set_json(&updated_user)
-    //         .send_request(&mut app)
-    //         .await;
-    //     let user: User = read_body_json(resp).await;
-    //     assert_eq!(user.phone, updated_phone);
-    //     assert_eq!(user.email, updated_email);
-    // }
+    #[actix_rt::test]
+    async fn update_device_test() {
+        let conn_pool = get_db_pool().await;
+        let mut app = init_service(
+            App::new()
+                .data(conn_pool.clone())
+                .configure(init_routes))
+            .await;
+    
+    
+        let device = json!({
+            "brand": "brand",
+            "name": "name",
+            "power": 1,
+            "serial": "serial"
+        });
+    
+        let device_add_response = TestRequest::post()
+            .uri("/devices")
+            .set_json(&device)
+            .send_request(&mut app)
+            .await;
+    
+    
+        let saved_device: Device = read_body_json(device_add_response).await;
+
+        let updated_device_json = json!({
+            "brand": "brand2",
+            "name": "name2",
+            "power": 2,
+            "serial": "serial2"
+        });
+
+        let resp = TestRequest::put()
+            .uri(format!("/devices/{}", saved_device.id).as_str())
+            .set_json(&updated_device_json)
+            .send_request(&mut app)
+            .await;
+
+        let device: Device = read_body_json(resp).await;
+
+        assert_eq!(device.name, updated_device_json["name"]);
+        assert_eq!(device.brand, updated_device_json["brand"]);
+        assert_eq!(device.power, updated_device_json["power"]);
+        assert_eq!(device.serial, updated_device_json["serial"]);
+    }
 
     #[actix_rt::test]
     async fn get_all () {
@@ -147,60 +181,34 @@ mod tests {
                 .data(conn_pool.clone())
                 .configure(init_routes))
             .await;
-
-       
+    
+    
         let device = json!({
             "brand": "brand",
             "name": "name",
             "power": 1,
             "serial": "serial"
         });
-
-        TestRequest::post()
+    
+        let created_device_response = TestRequest::post()
             .uri("/devices")
             .set_json(&device)
             .send_request(&mut app)
             .await;
 
+            let created_device: Device = read_body_json(created_device_response).await;
+    
         let all_response = TestRequest::get()
             .uri("/devices")
             .send_request(&mut app)
             .await;
+
         let all_devices: Vec<Device> = read_body_json(all_response).await;
-        println!("{:?}", all_devices);
-        // assert!(all_devices)
-        // assert_eq!(created_user1.phone, all_users[0].phone);
-        // assert_eq!(created_user2.email, all_users[1].email);
-        // assert_eq!(created_user2.phone, all_users[1].phone);
+       
+        assert_eq!(created_device.name, all_devices[0].name);
+        assert_eq!(created_device.brand, all_devices[0].brand);
+        assert_eq!(created_device.power, all_devices[0].power);
+        assert_eq!(created_device.serial, all_devices[0].serial);
     }
 
-    // #[actix_rt::test]
-    // async fn delete_user() {
-    //     let conn_pool = get_db_pool().await;
-    //     let mut app = init_service(
-    //         App::new()
-    //             .data(conn_pool.clone())
-    //             .configure(init_user_routes))
-    //         .await;
-    //     let phone = generate_random_number();
-    //     let email = generate_random_email();
-    //     let new_user = json!({
-    //         "phone": phone,
-    //         "email": email,
-    //     });
-    //     let create_user_resp = TestRequest::post()
-    //         .uri("/users")
-    //         .set_json(&new_user)
-    //         .send_request(&mut app)
-    //         .await;
-    //     let created_user: User = read_body_json(create_user_resp).await;
-    //     let resp = TestRequest::delete()
-    //         .uri(format!("/users/{}", created_user.id).as_str())
-    //         .send_request(&mut app)
-    //         .await;
-    //     let user: User = read_body_json(resp).await;
-    //     assert_eq!(created_user.phone, phone);
-    //     assert_eq!(created_user.email, email);
-    //     assert_eq!(created_user.id, user.id);
-    // }
 }

@@ -1,7 +1,7 @@
 use actix_web::{App, HttpServer};
 use std::net::TcpListener;
 use dotenv_codegen::dotenv;
-use sqlx::{SqlitePool, Pool, Sqlite};
+use sqlx::{SqlitePool, Pool, Sqlite, migrate};
 
 mod api;
 mod models;
@@ -17,6 +17,8 @@ async fn main() -> std::io::Result<()> {
             .await
             .expect("failed to connect to sqlite");
 
+    migrate!().run(&pool).await.expect("failed to run migrations");
+    
     let port: &str = dotenv!("PORT");
     let host: &str = dotenv!("HOST");
     let listener =

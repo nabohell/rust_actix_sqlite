@@ -37,6 +37,39 @@ pub async fn get_devices(pool: Data<Pool<Sqlite>>) -> HttpResponse {
     }
 }
 
+
+pub async fn add_device(device: Json<DeviceRequest>, pool: Data<Pool<Sqlite>>) -> HttpResponse {
+    println!("add_device {:?}", device);
+    if  device.name.trim().is_empty() {
+        return HttpResponse::BadRequest().json("device name can't be empty");
+    }
+
+    if device.serial.trim().is_empty() {
+        return HttpResponse::BadRequest().json("device serial can't be empty");
+    }
+
+    if  device.brand.trim().is_empty() {
+        return HttpResponse::BadRequest().json("device brand can't be empty");
+    }
+
+    let row = device_model::save(
+        &device.name,
+        &device.brand,
+        device.power,
+        &device.serial,
+        pool,
+    ).await;
+
+    match row {
+        Ok(row) => {
+            HttpResponse::Ok().json(serde_json::json!(serialize_device(row)))
+        },
+        Err(err) => {
+            HttpResponse::InternalServerError().json(format!("failed to save device: {:?}", err))
+        }
+    }
+}
+
 pub async fn get_device_by_id(id: Path<String>, pool: Data<Pool<Sqlite>>) -> HttpResponse {
     let row = device_model::get_by_id(id.to_string(), pool).await;
     match row {
@@ -58,42 +91,6 @@ pub async fn delete_device_by_id(id: Path<String>, pool: Data<Pool<Sqlite>>) -> 
             HttpResponse::InternalServerError().json(format!("FAILED to delete device, {:?}", err))
        }
    }
-}
-
-
-pub async fn add_device(device: Json<DeviceRequest>, pool: Data<Pool<Sqlite>>) -> HttpResponse {
-    println!("add_device {:?}", device);
-    if  device.name.trim().is_empty() {
-        return HttpResponse::BadRequest().json("device name can't be empty");
-    }
-
-    if device.serial.trim().is_empty() {
-        return HttpResponse::BadRequest().json("device serial can't be empty");
-    }
-
-    if  device.brand.trim().is_empty() {
-        return HttpResponse::BadRequest().json("device brand can't be empty");
-    }
-
-    println!("add_device");
-
-    
-    let row = device_model::save(
-        &device.name,
-        &device.brand,
-        device.power,
-        &device.serial,
-        pool,
-    ).await;
-
-    match row {
-        Ok(row) => {
-            HttpResponse::Ok().json(serde_json::json!(serialize_device(row)))
-        },
-        Err(err) => {
-            HttpResponse::InternalServerError().json(format!("failed to save device: {:?}", err))
-        }
-    }
 }
 
 pub async fn update_device(id: Path<String>, device: Json<DeviceRequest>, pool: Data<Pool<Sqlite>>) -> HttpResponse {
