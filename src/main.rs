@@ -24,7 +24,6 @@ async fn main() -> std::io::Result<()> {
     let listener =
         TcpListener::bind(format!("{}:{}", host, port))
             .expect("Failed to start server");
-            println!("{}:{}", host, port);
     HttpServer::new(move || App::new()
         .data(pool.clone())
         .configure(api::device_api::init_routes))

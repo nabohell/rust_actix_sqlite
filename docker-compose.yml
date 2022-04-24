@@ -1,0 +1,13 @@
+version: '3.7'
+
+networks:
+  backend:
+
+services:
+  server:
+    build: ./
+    ports:
+      - 8080:8080
+
+    networks:
+      - backend
