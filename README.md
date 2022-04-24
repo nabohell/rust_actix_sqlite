@@ -19,6 +19,9 @@
 ### run server
     cargo run
 
+### Run using docker & docker compose (optional)
+        docker-compose up -d
+
 ### Device APIs
 ##### Create New Device
 
